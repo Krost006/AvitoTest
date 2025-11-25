@@ -1,0 +1,44 @@
+
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres_container
+    ports:
+      - "5430:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data/pgdata
+      - ./migrations:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: avitotest_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    #Learn more about healthchecks here: https://docs.docker.com/compose/compose-file/compose-file-v3/#healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - avito_network
+    
+  
+  pr_service:
+    #image: go:1.25
+    build:
+      dockerfile: ./deploy/pr.Dockerfile
+    container_name: pr_service_container
+    ports:
+      - "8080:8080"
+    env_file: ./deploy/env.env
+    command: ./AvitoTest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - avito_network
+
+networks:
+  avito_network:
+    driver: bridge
