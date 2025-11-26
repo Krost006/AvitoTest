@@ -12,6 +12,7 @@ func SetUser(pool *pgxpool.Pool, ctx context.Context, user storage.User) (*stora
 	// Начинаем транзакцию
 	tx, err := pool.Begin(ctx)
 	if err != nil {
+		storage.ErrInternal.Message = err.Error()
 		return nil, storage.ErrInternal
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
@@ -19,6 +20,7 @@ func SetUser(pool *pgxpool.Pool, ctx context.Context, user storage.User) (*stora
 	// Проверяем наличие пользователя
 	var cnt int64
 	if err := tx.QueryRow(ctx, "SELECT count(1) FROM users WHERE user_id=$1", user.UserID).Scan(&cnt); err != nil {
+		storage.ErrNotFound.Message = err.Error()
 		return nil, storage.ErrNotFound
 	}
 
@@ -27,19 +29,25 @@ func SetUser(pool *pgxpool.Pool, ctx context.Context, user storage.User) (*stora
 	}
 
 	if _, err := tx.Exec(ctx,
-		"UPDATE users SET is_active=$4, updated_at=now() WHERE user_id=$1",
+		"UPDATE users SET is_active=$2, updated_at=now() WHERE user_id=$1",
 		user.UserID, user.IsActive); err != nil {
+		storage.ErrInternal.Message = err.Error()
 		return nil, storage.ErrInternal
 	}
 
 	var ans storage.User
-	err = tx.QueryRow(ctx, "SELECT user_id, username, team_name is_active FROM users WHERE user_id=$1", user.UserID).Scan(&ans)
+	err = tx.QueryRow(ctx,
+		"SELECT user_id, username, team_name, is_active FROM users WHERE user_id=$1",
+		user.UserID).Scan(&ans.UserID, &ans.Username, &ans.TeamName, &ans.IsActive)
 	if err != nil {
+		storage.ErrInternal.Message = err.Error()
+
 		return nil, storage.ErrInternal
 	}
 
 	// Коммитим транзакцию
 	if err := tx.Commit(ctx); err != nil {
+		storage.ErrInternal.Message = err.Error()
 		return nil, storage.ErrInternal
 	}
 

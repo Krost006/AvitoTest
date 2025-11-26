@@ -14,7 +14,6 @@ func AddTeam(pool *pgxpool.Pool, ctx context.Context, team storage.Team) (*stora
 	if err != nil {
 		return nil, storage.ErrInternal
 	}
-	// Всегда откатываем при ошибке (коммит отменит откат)
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Проверяем наличие команды

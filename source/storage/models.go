@@ -26,6 +26,6 @@ type PullRequest struct {
 	AuthorID          string
 	Status            PullRequestStatus
 	AssignedReviewers []string
-	CreatedAt         string  // ISO8601
-	MergedAt          *string // ISO8601, nullable
+	CreatedAt         string
+	MergedAt          *string
 }

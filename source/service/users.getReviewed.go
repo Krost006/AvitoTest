@@ -26,16 +26,23 @@ func GetUser(pool *pgxpool.Pool, ctx context.Context, user storage.User) (*stora
 		return nil, storage.ErrUserNotFound
 	}
 
-	if _, err := tx.Exec(ctx,
-		"UPDATE users SET is_active=$4, updated_at=now() WHERE user_id=$1",
-		user.UserID, user.IsActive); err != nil {
-		return nil, storage.ErrInternal
-	}
-
 	var ans storage.User
-	err = tx.QueryRow(ctx, "SELECT user_id, username, team_name is_active FROM users WHERE user_id=$1", user.UserID).Scan(&ans)
-	if err != nil {
-		return nil, storage.ErrInternal
+
+	rows, err := tx.Query(ctx,
+		"SELECT r.pull_request_id, r.pull_request_name, r.author_id, r.status "+
+			"FROM pull_requests r"+
+			" JOIN (SELECT pull_request_id id FROM pull_request_reviewers WHERE reviewer_id=$1) i "+
+			"ON r.author_id = i.id"+
+			" WHERE team_name=$1",
+		user.UserID)
+
+	for rows.Next() {
+		var tmp storage.PullRequest
+
+		if err := rows.Scan(&tmp); err != nil {
+			return nil, storage.ErrInternal
+		}
+		ans.PullRequests = append(ans.PullRequests, &tmp)
 	}
 
 	// Коммитим транзакцию
@@ -43,6 +50,6 @@ func GetUser(pool *pgxpool.Pool, ctx context.Context, user storage.User) (*stora
 		return nil, storage.ErrInternal
 	}
 
-	fmt.Println("Set Active: finished")
+	fmt.Println("Get Reviewed: finished")
 	return &ans, nil
 }
